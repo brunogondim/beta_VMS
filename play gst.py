@@ -8,26 +8,38 @@
 # https://mathieuduponchelle.github.io/2018-02-15-Python-Elements-2.html?gi-language=undefined
 # https://www.jejik.com/articles/2007/01/streaming_audio_over_tcp_with_python-gstreamer/
 
-# referencias python
+# referencias python audio
 # https://stackoverflow.com/questions/34140831/detecting-a-loud-impulse-sound
 # https://www.youtube.com/watch?v=AShHJdSIxkY
 # https://www.kaggle.com/fizzbuzz/beginner-s-guide-to-audio-data
-# https://jakevdp.github.io/PythonDataScienceHandbook/04.00-introduction-to-matplotlib.html
 
+# referencias python plot
+# https://jakevdp.github.io/PythonDataScienceHandbook/04.00-introduction-to-matplotlib.html
 # https://stackoverflow.com/questions/34764535/why-cant-matplotlib-plot-in-a-different-thread
 
 # gst-launch-1.0 audiotestsrc ! audioconvert ! autoaudiosink
 
+import matplotlib
+matplotlib.use('TkAgg')
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk#Agg
 import matplotlib.pyplot as plt
+import tkinter
+
+import multiprocessing
+import time
+import random
+
 import numpy as np
 import wave
 import sys
-
 import gi
+
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst
 
-class Video():
+window=tkinter.Tk()
+
+class Media():
     """BlueRov video capture class constructor
     Attributes:
         port (int): Video UDP port
@@ -48,7 +60,7 @@ class Video():
         Gst.init(None)
 
         self.port = port
-        self._frame = None
+        self._sample = None
 
 
         # # [Software component diagram](https://www.ardusub.com/software/components.html)
@@ -64,8 +76,8 @@ class Video():
         # self.video_sink_conf = \
         #     '! appsink emit-signals=true sync=false max-buffers=2 drop=true'
 
-        self.video_pipe = None
-        self.video_sink = None
+        self.media_pipe = None
+        self.media_sink = None
 
         self.run()
 
@@ -97,12 +109,12 @@ class Video():
         #command = 'audiotestsrc ! audioconvert ! appsink' #autoaudiosink
         command = 'audiotestsrc ! audioconvert ! appsink emit-signals=True' #autoaudiosink
 
-        self.video_pipe = Gst.parse_launch(command)
-        self.video_pipe.set_state(Gst.State.PLAYING)
-        self.video_sink = self.video_pipe.get_by_name('appsink0')
+        self.media_pipe = Gst.parse_launch(command)
+        self.media_pipe.set_state(Gst.State.PLAYING)
+        self.media_sink = self.media_pipe.get_by_name('appsink0')
 
     @staticmethod
-    def gst_to_opencv(sample):
+    def gst_to_array(sample):
         """Transform byte array into np array
         Args:
             sample (TYPE): Description
@@ -132,19 +144,19 @@ class Video():
         #return array
         return array
 
-    def frame(self):
+    def sample(self):
         """ Get Frame
         Returns:
             iterable: bool and image frame, cap.read() output
         """
-        return self._frame
+        return self._sample
 
-    def frame_available(self):
+    def sample_available(self):
         """Check if frame is available
         Returns:
             bool: true if frame is available
         """
-        return type(self._frame) != type(None)
+        return type(self._sample) != type(None)
 
     def run(self):
         """ Get frame to update _frame
@@ -158,41 +170,88 @@ class Video():
             #     self.video_sink_conf
             # ])
 
-        self.video_sink.connect('new-sample', self.callback)
+        self.media_sink.connect('new-sample', self.callback)
 
     def callback(self, sink):
         sample = sink.emit('pull-sample')
-        new_frame = self.gst_to_opencv(sample)
-        self._frame = new_frame
-        self._sample = sample
+        self._sampleteste = sample
+        new_sample = self.gst_to_array(sample)
+        self._sample = new_sample
         return Gst.FlowReturn.OK
 
+def plot():    #Function to create the base plot, make sure to make global the lines, axes, canvas and any part that you would want to update later
+
+    global line,ax,canvas
+    fig = matplotlib.figure.Figure()
+    ax = fig.add_subplot(1,1,1)
+    canvas = FigureCanvasTkAgg(fig, master=window)
+    canvas.show()
+    canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
+    canvas._tkcanvas.pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
+    line, = ax.plot([1,2,3], [1,2,10])
+
+def updateplot(q):
+    try:       #Try to check if there is data in the queue
+        result=q.get_nowait()
+
+        if result !='Q':
+             print (result)
+                 #here get crazy with the plotting, you have access to all the global variables that you defined in the plot function, and have the data that the simulation sent.
+             line.set_ydata([1,result,10])
+             ax.draw_artist(line)
+             canvas.draw()
+             window.after(500,updateplot,q)
+        else:
+             print ('done')
+    except:
+        print ("empty")
+        window.after(500,updateplot,q)
+
+
+def simulation(q):
+    iterations = range(100)
+    for i in iterations:
+        if not i % 10:
+            time.sleep(1)
+                #here send any data you want to send to the other process, can be any pickable object
+            q.put(random.randint(1,10))
+    q.put('Q')
 
 if __name__ == '__main__':
+    #Create a queue to share data between process
+    q = multiprocessing.Queue()
+
+    #Create and start the simulation process
+    simulate=multiprocessing.Process(None,simulation,args=(q,))
+    simulate.start()
+
+    #Create the base plot
+    plot()
+
+    #Call a function to update the plot when there is new data
+    updateplot(q)
+
+    window.mainloop()
+
+
+
     # Create the video object
     # Add port= if is necessary to use a different one
-    video = Video()
-
+    media = Media()
+    window.mainloop()
     # mqtt_topic = sys.argv[1]
     # mqtt_hostname = sys.argv[2]
     # mqtt_port = sys.argv[3]    
-
-    x = np.linspace(0, 10, 50)
-
-    plt.plot(x, np.sin(x))
-    plt.plot(x, np.cos(x))
-    plt.show()
-    i=0
+    
     while True:
         # Wait for the next frame
-        if not video.frame_available():
+        if not media.sample_available():
             continue
 
-        teste = video.gst_to_opencv(video._sample)
+        #teste = media.gst_to_array(media._sampleteste)
+        sample = media.sample()
 
-        frame = video.frame()
-        i=i+1
-        x = np.linspace(0, 10, i)
+
         #frame.setflags(write=True)
 
         # # Find all the faces in the image using the default HOG-based model.
@@ -207,3 +266,4 @@ if __name__ == '__main__':
         # # cv2.imshow('frame', frame)
         # # if cv2.waitKey(1) & 0xFF == ord('q'):
         # #    break
+
