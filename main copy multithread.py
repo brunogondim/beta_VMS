@@ -82,9 +82,9 @@ def sample_plot(CHUNK, *perfis):    #Function to create the base plot, make sure
     for perfil in perfis:
         y_perfil -= .2
         perfil_list.append(ax_profile.text(x_perfil, y_perfil, perfil, horizontalalignment='center', verticalalignment='center', transform=ax_profile.transAxes))
-        if (y_perfil <= .2):
+        if (y_perfil <= .3):
             y_perfil = 1
-            x_perfil += .2
+            x_perfil += .5
 
 # def sample_to_bits(q_sample,q_bits):
 #     try:       #Try to check if there is data in the queue
@@ -119,27 +119,35 @@ def sample_plot(CHUNK, *perfis):    #Function to create the base plot, make sure
 #         print (str(e))
 #         # window.after(500,updateplot,q)
 
-def plot(q_sample_plot, CHUNK, *perfis):
-    while True:
-    
-        try:       #Try to check if there is data in the queue
-            sample = q_sample_plot.get_nowait()
-
-            line.set_ydata(sample)
-            #line_fft.set_ydata(my_array_fft)
-            perfil_index = 0
-            for perfil in perfis:
-                perfil_list[perfil_index].set_text(perfil)
-                perfil_index +=1
-            ax.draw_artist(line)
-            canvas.draw()
-            #window.after(500,updateplot,q)
-        except Exception as e:
-            print (str(e))
-            # window.after(500,updateplot,q)
+def update_plot():
+    global my_array
+    global my_array_fft
+    try:       
+        line.set_ydata(my_array)
+        line_fft.set_ydata(my_array_fft)
+        perfil_index = 0
+        for perfil in perfil_list:
+            perfil_list[0].set_text('amostragem(Hz): ' + str(profile_amostragem))
+            perfil_list[1].set_text('canais: ' + str(profile_canais))
+            perfil_list[2].set_text('buffer_saida_gst: ' + str(profile_tamanho_buffer_gst))
+            perfil_list[3].set_text('buffer_entrada_app: ' + str(profile_tamanho_buffer_q_sample))
+            perfil_list[4].set_text('profile_tamanho_buffer_q_bits: ' + str(profile_tamanho_buffer_q_bits))
+            perfil_index +=1
+        ax.draw_artist(line)
+        ax.draw_artist(line)
+        canvas.draw()
+        #window.after(500,updateplot,q)
+    except Exception as e:
+        print (str(e))
+        # window.after(500,updateplot,q)
 
 def enfileiramento_q_sample(q_sample, q_bits, q_sample_plot, CHUNK, *perfis):
     media = Media() # Create the media object
+    global profile_amostragem
+    global profile_canais
+    global profile_tamanho_buffer_gst
+    global profile_tamanho_buffer_q_sample 
+    global profile_tamanho_buffer_q_bits
     while True:
         # Wait for the next frame
         if not media.sample_available():
@@ -155,18 +163,20 @@ def enfileiramento_q_sample(q_sample, q_bits, q_sample_plot, CHUNK, *perfis):
 
 def enfileiramento_q_bits(q_sample, q_bits, q_sample_plot, CHUNK, *perfis):
     while True:
-        if not q_bits.empty():
+        if q_sample.empty():
             continue
-    try:       #Try to check if there is data in the queue
-        result=q_sample.get_nowait()
-        #for i = 0 to result.size - 1:
-        for i in result:
-            q_bits.put(i)
-    except:
-        print ("erro na transformação array to bits")
-        # window.after(500,updateplot,q)
+        try:       #Try to check if there is data in the queue
+            result=q_sample.get_nowait()
+            #for i = 0 to result.size - 1:
+            for i in result:
+                q_bits.put(i)
+        except:
+            print ("erro na transformação array to bits")
+            # window.after(500,updateplot,q)
 
 def enfileiramento_processamento(q_sample, q_bits, q_sample_plot, CHUNK, *perfis):
+    global my_array
+    global my_array_fft
 
     while True:
         if profile_tamanho_buffer_q_bits < CHUNK:
@@ -177,41 +187,13 @@ def enfileiramento_processamento(q_sample, q_bits, q_sample_plot, CHUNK, *perfis
             my_array = np.asarray(my_list)
             my_array_fft = np.abs(fft(my_array)) * 2 / (256*CHUNK)
 
-            q_sample_plot.put(my_array)
+            #q_sample_plot.put(my_array)
 
         except Exception as e:
             print (str(e))
-
-    def bits_to_process(q_bits, q_sample_plot, CHUNK, *perfis):
-        try:       #Try to check if there is data in the queue
-            my_list = [q_bits.get_nowait() for x in range(CHUNK)]
-            
-            my_array = np.asarray(my_list)
-            my_array_fft = np.abs(fft(my_array)) * 2 / (256*CHUNK)
-
-            q_sample_plot.put(my_array)
-
-        #     #here get crazy with the plotting, you have access to all the global variables that you defined in the plot function, and have the data that the simulation sent.
-        #     line.set_ydata(my_array)
-        #     line_fft.set_ydata(my_array_fft)
-        #     perfil_index = 0
-        #     for perfil in perfis:
-        #         perfil_list[perfil_index].set_text(perfil)
-        #         perfil_index +=1
-        #     ax.draw_artist(line)
-        #     canvas.draw()
-        #     #window.after(500,updateplot,q)
-        except Exception as e:
-            print (str(e))
-            # window.after(500,updateplot,q)
 
 if __name__ == '__main__':
 
-    CHUNK = 1024 #* 3
-    q_sample = multiprocessing.Queue()
-    q_bits = multiprocessing.Queue() 
-    q_sample_plot = multiprocessing.Queue(maxsize=1) #Create a queue to share data between process
-    q_sample_plot_fft = multiprocessing.Queue(maxsize=1) #Create a queue to share data between process
     global profile_amostragem
     global profile_canais
     global profile_tamanho_buffer_gst
@@ -223,6 +205,24 @@ if __name__ == '__main__':
     profile_tamanho_buffer_gst = 0
     profile_tamanho_buffer_q_sample = 0 
     profile_tamanho_buffer_q_bits= 0
+
+    global my_array
+    global my_array_fft
+
+    my_array = 0
+    my_array_fft = 0
+
+    CHUNK = 1024 #* 3
+    sample_plot(CHUNK, profile_amostragem,profile_canais,profile_tamanho_buffer_gst, profile_tamanho_buffer_q_sample, profile_tamanho_buffer_q_bits) #Create the base plot
+
+    q_sample = multiprocessing.Queue()
+    q_bits = multiprocessing.Queue() 
+    q_sample_plot = multiprocessing.Queue(maxsize=100000) #Create a queue to share data between process
+    q_sample_plot_fft = multiprocessing.Queue(maxsize=1) #Create a queue to share data between process
+
+
+    
+
 
     thread_enfileiramento_q_sample = threading.Thread(target=enfileiramento_q_sample, args=(
                 q_sample,
@@ -264,14 +264,17 @@ if __name__ == '__main__':
     thread_enfileiramento_processamento.start()
     
 
-    plot(q_sample_plot,
-        CHUNK, 
-        'amostragem(Hz): ' + str(profile_amostragem),
-        'canais: ' + str(profile_canais),
-        'buffer_saida_gst: ' + str(profile_tamanho_buffer_gst),
-        'buffer_entrada_app: ' + str(profile_tamanho_buffer_q_sample),
-        'profile_tamanho_buffer_q_bits: ' + str(profile_tamanho_buffer_q_bits)
-        )
+    # plot(q_sample_plot,
+    #     CHUNK, 
+    #     'amostragem(Hz): ' + str(profile_amostragem),
+    #     'canais: ' + str(profile_canais),
+    #     'buffer_saida_gst: ' + str(profile_tamanho_buffer_gst),
+    #     'buffer_entrada_app: ' + str(profile_tamanho_buffer_q_sample),
+    #     'profile_tamanho_buffer_q_bits: ' + str(profile_tamanho_buffer_q_bits)
+    #     )
+
+    while True:
+        update_plot()
 
 
 
