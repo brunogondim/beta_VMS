@@ -86,105 +86,99 @@ def sample_plot(CHUNK, *perfis):    #Function to create the base plot, make sure
             y_perfil = 1
             x_perfil += .5
 
-# def sample_to_bits(q_sample,q_bits):
-#     try:       #Try to check if there is data in the queue
-#         result=q_sample.get_nowait()
-#         #for i = 0 to result.size - 1:
-#         for i in result:
-#             q_bits.put(i)
-#     except:
-#         print ("erro na transformação array to bits")
-#         # window.after(500,updateplot,q)
-
-# def bits_to_process(q_bits, q_sample_plot, CHUNK, *perfis):
-#     try:       #Try to check if there is data in the queue
-#         my_list = [q_bits.get_nowait() for x in range(CHUNK)]
-        
-#         my_array = np.asarray(my_list)
-#         my_array_fft = np.abs(fft(my_array)) * 2 / (256*CHUNK)
-
-#         q_sample_plot.put(my_array)
-
-#     #     #here get crazy with the plotting, you have access to all the global variables that you defined in the plot function, and have the data that the simulation sent.
-#     #     line.set_ydata(my_array)
-#     #     line_fft.set_ydata(my_array_fft)
-#     #     perfil_index = 0
-#     #     for perfil in perfis:
-#     #         perfil_list[perfil_index].set_text(perfil)
-#     #         perfil_index +=1
-#     #     ax.draw_artist(line)
-#     #     canvas.draw()
-#     #     #window.after(500,updateplot,q)
-#     except Exception as e:
-#         print (str(e))
-#         # window.after(500,updateplot,q)
-
 def update_plot():
+    
+    global profile_amostragem
+    global profile_canais
+    global profile_tamanho_buffer_gst
+    global profile_tamanho_buffer_q_sample
+    global profile_tamanho_buffer_q_bits
+    
     global my_array
     global my_array_fft
     try:       
         line.set_ydata(my_array)
         line_fft.set_ydata(my_array_fft)
-        perfil_index = 0
-        for perfil in perfil_list:
-            perfil_list[0].set_text('amostragem(Hz): ' + str(profile_amostragem))
-            perfil_list[1].set_text('canais: ' + str(profile_canais))
-            perfil_list[2].set_text('buffer_saida_gst: ' + str(profile_tamanho_buffer_gst))
-            perfil_list[3].set_text('buffer_entrada_app: ' + str(profile_tamanho_buffer_q_sample))
-            perfil_list[4].set_text('profile_tamanho_buffer_q_bits: ' + str(profile_tamanho_buffer_q_bits))
-            perfil_index +=1
+
+        perfil_list[0].set_text('amostragem(Hz): ' + str(profile_amostragem))
+        perfil_list[1].set_text('canais: ' + str(profile_canais))
+        perfil_list[2].set_text('buffer_saida_gst: ' + str(profile_tamanho_buffer_gst))
+        perfil_list[3].set_text('buffer_entrada_app: ' + str(profile_tamanho_buffer_q_sample))
+        perfil_list[4].set_text('profile_tamanho_buffer_q_bits: ' + str(profile_tamanho_buffer_q_bits))
+
         ax.draw_artist(line)
-        ax.draw_artist(line)
+        ax_fft.draw_artist(line_fft)
         canvas.draw()
         #window.after(500,updateplot,q)
     except Exception as e:
         print (str(e))
         # window.after(500,updateplot,q)
 
-def enfileiramento_q_sample(q_sample, q_bits, q_sample_plot, CHUNK, *perfis):
+#def enfileiramento_q_sample(q_sample, q_bits, q_sample_plot, CHUNK, *perfis):
+def enfileiramento_q_sample():
     media = Media() # Create the media object
     global profile_amostragem
     global profile_canais
     global profile_tamanho_buffer_gst
     global profile_tamanho_buffer_q_sample 
-    global profile_tamanho_buffer_q_bits
+
+    global q_sample
+
     while True:
         # Wait for the next frame
         if not media.sample_available():
+            print(str(media.sample_available()))
             continue
         #teste = media.gst_to_array(media._sampleteste)
         profile_amostragem = media._sampleteste.get_caps().get_structure(0).get_value('rate')
         profile_canais = media._sampleteste.get_caps().get_structure(0).get_value('channels')
         profile_tamanho_buffer_gst = media._sampleteste.get_buffer().get_size()
-        profile_tamanho_buffer_q_sample = q_sample.qsize() 
-        profile_tamanho_buffer_q_bits = q_bits.qsize()
+        
         sample = media.sample()
         q_sample.put(sample)
+        profile_tamanho_buffer_q_sample = q_sample.qsize() 
 
-def enfileiramento_q_bits(q_sample, q_bits, q_sample_plot, CHUNK, *perfis):
+def enfileiramento_q_bits():
+    
+    global profile_tamanho_buffer_q_bits
+    
+    global q_sample
+    global q_bits
+    global CHUNK
+
+    temp = np.empty(0,dtype='uint8')
     while True:
         if q_sample.empty():
             continue
         try:       #Try to check if there is data in the queue
-            result=q_sample.get_nowait()
-            #for i = 0 to result.size - 1:
-            for i in result:
-                q_bits.put(i)
+            novo = q_sample.get_nowait()
+            temp_c =np.concatenate((temp,novo))
+            temp = temp_c
+            if temp.size >= CHUNK:
+                temp_2, temp_3, lixo = np.hsplit(temp,[CHUNK,temp.size])
+                temp = temp_3
+                q_bits.put(temp_2)
+
+            # q_bits.put(novo)
         except:
             print ("erro na transformação array to bits")
             # window.after(500,updateplot,q)
+        
+        profile_tamanho_buffer_q_bits = q_bits.qsize()
 
-def enfileiramento_processamento(q_sample, q_bits, q_sample_plot, CHUNK, *perfis):
+def enfileiramento_processamento():
+    
+    global q_bits
+    global CHUNK
+    
     global my_array
     global my_array_fft
 
     while True:
-        if profile_tamanho_buffer_q_bits < CHUNK:
+        if q_bits.empty():
             continue
         try:       #Try to check if there is data in the queue
-            my_list = [q_bits.get_nowait() for x in range(CHUNK)]
-            
-            my_array = np.asarray(my_list)
+            my_array = q_bits.get_nowait()
             my_array_fft = np.abs(fft(my_array)) * 2 / (256*CHUNK)
 
             #q_sample_plot.put(my_array)
@@ -212,55 +206,27 @@ if __name__ == '__main__':
     my_array = 0
     my_array_fft = 0
 
-    CHUNK = 1024 #* 3
+    global CHUNK
+    CHUNK = 1024 * 3
     sample_plot(CHUNK, profile_amostragem,profile_canais,profile_tamanho_buffer_gst, profile_tamanho_buffer_q_sample, profile_tamanho_buffer_q_bits) #Create the base plot
+
+    global q_sample
+    global q_bits
+    global q_sample_plot
+    global q_sample_plot_fft
 
     q_sample = multiprocessing.Queue()
     q_bits = multiprocessing.Queue() 
     q_sample_plot = multiprocessing.Queue(maxsize=100000) #Create a queue to share data between process
     q_sample_plot_fft = multiprocessing.Queue(maxsize=1) #Create a queue to share data between process
 
-
-    
-
-
-    thread_enfileiramento_q_sample = threading.Thread(target=enfileiramento_q_sample, args=(
-                q_sample,
-                q_bits,
-                q_sample_plot,
-                CHUNK, 
-                'amostragem(Hz): ' + str(profile_amostragem),
-                'canais: ' + str(profile_canais),
-                'buffer_saida_gst: ' + str(profile_tamanho_buffer_gst),
-                'buffer_entrada_app: ' + str(profile_tamanho_buffer_q_sample),
-                'profile_tamanho_buffer_q_bits: ' + str(profile_tamanho_buffer_q_bits)
-                ))
+    thread_enfileiramento_q_sample = threading.Thread(target=enfileiramento_q_sample)
     thread_enfileiramento_q_sample.start()
 
-    thread_enfileiramento_q_bits = threading.Thread(target=enfileiramento_q_bits, args=(
-                q_sample,
-                q_bits,
-                q_sample_plot,
-                CHUNK, 
-                'amostragem(Hz): ' + str(profile_amostragem),
-                'canais: ' + str(profile_canais),
-                'buffer_saida_gst: ' + str(profile_tamanho_buffer_gst),
-                'buffer_entrada_app: ' + str(profile_tamanho_buffer_q_sample),
-                'profile_tamanho_buffer_q_bits: ' + str(profile_tamanho_buffer_q_bits)
-                ))
+    thread_enfileiramento_q_bits = threading.Thread(target=enfileiramento_q_bits)
     thread_enfileiramento_q_bits.start()
 
-    thread_enfileiramento_processamento = threading.Thread(target=enfileiramento_processamento, args=(
-                q_sample,
-                q_bits,
-                q_sample_plot,
-                CHUNK, 
-                'amostragem(Hz): ' + str(profile_amostragem),
-                'canais: ' + str(profile_canais),
-                'buffer_saida_gst: ' + str(profile_tamanho_buffer_gst),
-                'buffer_entrada_app: ' + str(profile_tamanho_buffer_q_sample),
-                'profile_tamanho_buffer_q_bits: ' + str(profile_tamanho_buffer_q_bits)
-                ))
+    thread_enfileiramento_processamento = threading.Thread(target=enfileiramento_processamento)
     thread_enfileiramento_processamento.start()
     
 

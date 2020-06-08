@@ -6,12 +6,15 @@ import gi
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst
 
+import queue
+
 class Media():
 
     def __init__(self, port=5000):
         Gst.init(None)
         self.port = port
         self._sample = None
+        self._sample_queue = queue.Queue(maxsize=100)
         #self._sample_queue = multiprocessing.Queue()
         self.media_pipe = None
         self.media_sink = None
@@ -43,6 +46,7 @@ class Media():
         self._sampleteste = sample
         new_sample = self.gst_to_array(sample)
         self._sample = new_sample
+        self._sample_queue.put(new_sample)
         return Gst.FlowReturn.OK
 
     @staticmethod
@@ -61,7 +65,10 @@ class Media():
         #return buf
 
     def sample(self):
-        return self._sample
+        #sample_extraido = self._sample
+        self._sample = None
+        sample_extraido = self._sample_queue.get_nowait()
+        return sample_extraido
 
     def sample_available(self):
         return type(self._sample) != type(None)
