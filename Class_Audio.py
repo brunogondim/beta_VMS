@@ -1,4 +1,5 @@
 # Trabalho de sistemas multimidia UFF-IC-PGC 2020 - Bruno Teixeira Gondim
+# Pipeline Gstreamer criado com base no VMS face-counter.py (https://github.com/midiacom/alfa)
 
 import numpy as np
 import gi
@@ -10,7 +11,7 @@ import queue
 
 class Media():
 
-    def __init__(self, port=5000):
+    def __init__(self, port=5000, comando=''):
         Gst.init(None)
         self.port = port
         self._sample = None
@@ -18,6 +19,8 @@ class Media():
         #self._sample_queue = multiprocessing.Queue()
         self.media_pipe = None
         self.media_sink = None
+
+        self.comando = comando
 
         self.run()
     
@@ -29,13 +32,32 @@ class Media():
             #     self.video_decode,
             #     self.video_sink_conf
             # ])
-        self.media_sink.connect('new-sample', self.callback)
+        if self.comando == '':
+            self.media_sink.connect('new-sample', self.callback)
 
     def start_gst(self, config=None):
     
-        command = 'audiotestsrc ! audioconvert ! audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! appsink emit-signals=True' #autoaudiosink
-        #command = 'audiotestsrc ! audioconvert ! audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! tee name=t ! queue ! appsink emit-signals=True t. ! queue ! autoaudiosink'
-        #command = 'filesrc location=/home/bruno/Vprism/beta_VMS/teste.wav ! decodebin ! audioconvert ! audioresample ! audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! appsink emit-signals=True'
+        command = ''
+        
+        if self.comando == '':
+            command = 'udpsrc port=5000 ! application/x-rtp, media=audio, clock-rate=44100, width=16, height=16, encoding-name=L16, encoding-params=1, channels=1, channel-positions=1, payload=96 ! rtpL16depay ! audioconvert ! audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! appsink emit-signals=True'
+        elif self.comando == 'teste':
+            command = 'audiotestsrc ! audioconvert ! audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! appsink emit-signals=True' #autoaudiosink
+            #command = 'audiotestsrc ! audioconvert ! audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! tee name=t ! queue ! appsink emit-signals=True t. ! queue ! autoaudiosink'
+            #command = 'filesrc location=/home/bruno/Vprism/beta_VMS/teste.wav ! decodebin ! audioconvert ! audioresample ! audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! appsink emit-signals=True'
+        elif self.comando == 'tocar':
+            #command = 'audiotestsrc ! audioconvert ! autoaudiosink'
+            command = 'udpsrc port=5000 ! application/x-rtp, media=audio, clock-rate=44100, width=16, height=16, encoding-name=L16, encoding-params=1, channels=1, channel-positions=1, payload=96 ! rtpL16depay ! audioconvert ! alsasink sync=false'
+
+            #para teste
+            # gst-launch-1.0 audiotestsrc ! audioconvert ! autoaudiosink
+            # gst-launch-1.0 audiotestsrc ! audioconvert ! udpsink port=10001
+            # gst-launch-1.0 filesrc location=/home/bruno/Vprism/beta_VMS/teste.wav ! audioconvert ! udpsink port=10001
+
+            #exemplo de transmissão que deu certo
+            #gst-launch-1.0 audiotestsrc ! audioconvert ! audio/x-raw,channels=1,depth=16,width=16,rate=44100 ! rtpL16pay  ! udpsink host=localhost port=5000
+            #gst-launch-1.0 filesrc location=/home/bruno/Vprism/beta_VMS/teste.wav ! decodebin ! audioconvert ! audioresample !  audio/x-raw,channels=1,depth=16,width=16,rate=44100 ! rtpL16pay  ! udpsink host=localhost port=5000
+            #gst-launch-1.0 -v udpsrc port=5000 ! "application/x-rtp,media=(string)audio, clock-rate=(int)44100, width=16, height=16, encoding-name=(string)L16, encoding-params=(string)1, channels=(int)1, channel-positions=(int)1, payload=(int)96" ! rtpL16depay ! audioconvert ! alsasink sync=false
 
         self.media_pipe = Gst.parse_launch(command)
         self.media_pipe.set_state(Gst.State.PLAYING)

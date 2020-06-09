@@ -91,8 +91,9 @@ def update_plot():
     global profile_amostragem
     global profile_canais
     global profile_tamanho_buffer_gst
+    global profile_amostras_visualizadas
     global profile_tamanho_buffer_q_sample
-    global profile_tamanho_buffer_q_bits
+    global profile_tamanho_buffer_q_sample_processado
     
     global my_array
     global my_array_fft
@@ -102,9 +103,10 @@ def update_plot():
 
         perfil_list[0].set_text('amostragem(Hz): ' + str(profile_amostragem))
         perfil_list[1].set_text('canais: ' + str(profile_canais))
-        perfil_list[2].set_text('buffer_saida_gst: ' + str(profile_tamanho_buffer_gst))
-        perfil_list[3].set_text('buffer_entrada_app: ' + str(profile_tamanho_buffer_q_sample))
-        perfil_list[4].set_text('profile_tamanho_buffer_q_bits: ' + str(profile_tamanho_buffer_q_bits))
+        perfil_list[2].set_text('amostras saida gst: ' + str(profile_tamanho_buffer_gst))
+        perfil_list[3].set_text('amostras por vez: ' + str(profile_amostras_visualizadas))
+        perfil_list[4].set_text('buffer1 entrada: ' + str(profile_tamanho_buffer_q_sample))
+        perfil_list[5].set_text('buffer2 processado: ' + str(profile_tamanho_buffer_q_sample_processado))
 
         ax.draw_artist(line)
         ax_fft.draw_artist(line_fft)
@@ -114,9 +116,9 @@ def update_plot():
         print (str(e))
         # window.after(500,updateplot,q)
 
-#def enfileiramento_q_sample(q_sample, q_bits, q_sample_plot, CHUNK, *perfis):
 def enfileiramento_q_sample():
-    media = Media() # Create the media object
+    media = Media() # Create the media object para teste: media = Media(comando='teste')
+    media_tocar = Media(comando='tocar')
     global profile_amostragem
     global profile_canais
     global profile_tamanho_buffer_gst
@@ -125,9 +127,7 @@ def enfileiramento_q_sample():
     global q_sample
 
     while True:
-        # Wait for the next frame
         if not media.sample_available():
-            print(str(media.sample_available()))
             continue
         #teste = media.gst_to_array(media._sampleteste)
         profile_amostragem = media._sampleteste.get_caps().get_structure(0).get_value('rate')
@@ -138,12 +138,12 @@ def enfileiramento_q_sample():
         q_sample.put(sample)
         profile_tamanho_buffer_q_sample = q_sample.qsize() 
 
-def enfileiramento_q_bits():
+def enfileiramento_q_sample_processado():
     
-    global profile_tamanho_buffer_q_bits
+    global profile_tamanho_buffer_q_sample_processado
     
     global q_sample
-    global q_bits
+    global q_sample_processado
     global CHUNK
 
     temp = np.empty(0,dtype='uint8')
@@ -157,28 +157,28 @@ def enfileiramento_q_bits():
             if temp.size >= CHUNK:
                 temp_2, temp_3, lixo = np.hsplit(temp,[CHUNK,temp.size])
                 temp = temp_3
-                q_bits.put(temp_2)
+                q_sample_processado.put(temp_2)
 
-            # q_bits.put(novo)
+            # q_sample_processado.put(novo)
         except:
             print ("erro na transformação array to bits")
             # window.after(500,updateplot,q)
         
-        profile_tamanho_buffer_q_bits = q_bits.qsize()
+        profile_tamanho_buffer_q_sample_processado = q_sample_processado.qsize()
 
 def enfileiramento_processamento():
     
-    global q_bits
+    global q_sample_processado
     global CHUNK
     
     global my_array
     global my_array_fft
 
     while True:
-        if q_bits.empty():
+        if q_sample_processado.empty():
             continue
         try:       #Try to check if there is data in the queue
-            my_array = q_bits.get_nowait()
+            my_array = q_sample_processado.get_nowait()
             my_array_fft = np.abs(fft(my_array)) * 2 / (256*CHUNK)
 
             #q_sample_plot.put(my_array)
@@ -188,17 +188,21 @@ def enfileiramento_processamento():
 
 if __name__ == '__main__':
 
+    global CHUNK
     global profile_amostragem
     global profile_canais
     global profile_tamanho_buffer_gst
+    global profile_amostras_visualizadas
     global profile_tamanho_buffer_q_sample 
-    global profile_tamanho_buffer_q_bits
-
+    global profile_tamanho_buffer_q_sample_processado
+    
+    CHUNK = 1024 * 1
     profile_amostragem = 0
     profile_canais = 0
     profile_tamanho_buffer_gst = 0
+    profile_amostras_visualizadas = CHUNK
     profile_tamanho_buffer_q_sample = 0 
-    profile_tamanho_buffer_q_bits= 0
+    profile_tamanho_buffer_q_sample_processado= 0
 
     global my_array
     global my_array_fft
@@ -206,39 +210,33 @@ if __name__ == '__main__':
     my_array = 0
     my_array_fft = 0
 
-    global CHUNK
-    CHUNK = 1024 * 3
-    sample_plot(CHUNK, profile_amostragem,profile_canais,profile_tamanho_buffer_gst, profile_tamanho_buffer_q_sample, profile_tamanho_buffer_q_bits) #Create the base plot
+    sample_plot(CHUNK, 
+                profile_amostragem,
+                profile_canais,
+                profile_tamanho_buffer_gst, 
+                profile_amostras_visualizadas, 
+                profile_tamanho_buffer_q_sample, 
+                profile_tamanho_buffer_q_sample_processado) #Create the base plot
 
     global q_sample
-    global q_bits
+    global q_sample_processado
     global q_sample_plot
     global q_sample_plot_fft
 
     q_sample = multiprocessing.Queue()
-    q_bits = multiprocessing.Queue() 
+    q_sample_processado = multiprocessing.Queue() 
     q_sample_plot = multiprocessing.Queue(maxsize=100000) #Create a queue to share data between process
     q_sample_plot_fft = multiprocessing.Queue(maxsize=1) #Create a queue to share data between process
 
     thread_enfileiramento_q_sample = threading.Thread(target=enfileiramento_q_sample)
     thread_enfileiramento_q_sample.start()
 
-    thread_enfileiramento_q_bits = threading.Thread(target=enfileiramento_q_bits)
-    thread_enfileiramento_q_bits.start()
+    thread_enfileiramento_q_sample_processado = threading.Thread(target=enfileiramento_q_sample_processado)
+    thread_enfileiramento_q_sample_processado.start()
 
     thread_enfileiramento_processamento = threading.Thread(target=enfileiramento_processamento)
     thread_enfileiramento_processamento.start()
     
-
-    # plot(q_sample_plot,
-    #     CHUNK, 
-    #     'amostragem(Hz): ' + str(profile_amostragem),
-    #     'canais: ' + str(profile_canais),
-    #     'buffer_saida_gst: ' + str(profile_tamanho_buffer_gst),
-    #     'buffer_entrada_app: ' + str(profile_tamanho_buffer_q_sample),
-    #     'profile_tamanho_buffer_q_bits: ' + str(profile_tamanho_buffer_q_bits)
-    #     )
-
     while True:
         update_plot()
 
@@ -251,7 +249,7 @@ if __name__ == '__main__':
 
 
 
-    # sample_plot(CHUNK, profile_amostragem,profile_canais,profile_tamanho_buffer_gst, profile_tamanho_buffer_q_sample, profile_tamanho_buffer_q_bits) #Create the base plot
+    # sample_plot(CHUNK, profile_amostragem,profile_canais,profile_tamanho_buffer_gst, profile_tamanho_buffer_q_sample, profile_tamanho_buffer_q_sample_processado) #Create the base plot
     # # thread_plot = threading.Thread(target=plot, args=(
     # #             q_sample_plot,
     # #             CHUNK, 
@@ -259,7 +257,7 @@ if __name__ == '__main__':
     # #             'canais: ' + str(profile_canais),
     # #             'buffer_saida_gst: ' + str(profile_tamanho_buffer_gst),
     # #             'buffer_entrada_app: ' + str(profile_tamanho_buffer_q_sample),
-    # #             'profile_tamanho_buffer_q_bits: ' + str(profile_tamanho_buffer_q_bits)
+    # #             'profile_tamanho_buffer_q_sample_processado: ' + str(profile_tamanho_buffer_q_sample_processado)
     # #             ))
     # # thread_plot.start()
 
@@ -276,24 +274,24 @@ if __name__ == '__main__':
     #     profile_canais = media._sampleteste.get_caps().get_structure(0).get_value('channels')
     #     profile_tamanho_buffer_gst = media._sampleteste.get_buffer().get_size()
     #     profile_tamanho_buffer_q_sample = q_sample.qsize() 
-    #     profile_tamanho_buffer_q_bits = q_bits.qsize()
+    #     profile_tamanho_buffer_q_sample_processado = q_sample_processado.qsize()
 
 
     #     sample = media.sample()
     #     q_sample.put(sample)
 
 
-    #     sample_to_bits(q_sample,q_bits)
-    #     if profile_tamanho_buffer_q_bits >= CHUNK:
+    #     sample_to_bits(q_sample,q_sample_processado)
+    #     if profile_tamanho_buffer_q_sample_processado >= CHUNK:
     #         bits_to_process(
-    #             q_bits,
+    #             q_sample_processado,
     #             q_sample_plot,
     #             CHUNK, 
     #             'amostragem(Hz): ' + str(profile_amostragem),
     #             'canais: ' + str(profile_canais),
     #             'buffer_saida_gst: ' + str(profile_tamanho_buffer_gst),
     #             'buffer_entrada_app: ' + str(profile_tamanho_buffer_q_sample),
-    #             'profile_tamanho_buffer_q_bits: ' + str(profile_tamanho_buffer_q_bits)
+    #             'profile_tamanho_buffer_q_sample_processado: ' + str(profile_tamanho_buffer_q_sample_processado)
     #             )
         
         
