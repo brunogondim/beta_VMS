@@ -15,7 +15,8 @@ class Media():
         Gst.init(None)
         self.port = port
         self._sample = None
-        self._sample_queue = queue.Queue(maxsize=100)
+        self._sampleteste = None
+        self._sample_queue = queue.Queue(maxsize=10000)
         #self._sample_queue = multiprocessing.Queue()
         self.media_pipe = None
         self.media_sink = None
@@ -32,7 +33,7 @@ class Media():
             #     self.video_decode,
             #     self.video_sink_conf
             # ])
-        if self.comando == '':
+        if self.comando != 'tocar':
             self.media_sink.connect('new-sample', self.callback)
 
     def start_gst(self, config=None):
@@ -57,13 +58,13 @@ class Media():
                             tee name=t ! \
                                 queue ! \
                                     audioconvert ! \
-                                    alsasink sync=false t. ! \
-                                queue ! \
-                                    audioconvert ! \
                                     audio/x-raw,format=S8,channels=1, rate=44100 ! \
-                                    appsink emit-signals=True'
+                                    appsink emit-signals=True t. ! \
+                                queue ! \
+                                     audioconvert ! \
+                                     alsasink sync=false'
             
-            # command = 'audiotestsrc ! audioconvert ! audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! appsink emit-signals=True' #autoaudiosink
+            #command = 'audiotestsrc ! audioconvert ! audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! appsink emit-signals=True' # ou usar: autoaudiosink
             #command = 'filesrc location=/home/bruno/Vprism/beta_VMS/teste.wav ! decodebin ! audioconvert ! audioresample ! audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! appsink emit-signals=True'
         elif self.comando == 'tocar':
             #command = 'audiotestsrc ! audioconvert ! autoaudiosink'
