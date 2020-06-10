@@ -48,12 +48,12 @@ from Class_Audio import Media
 
 
 window=tkinter.Tk()
+#window.geometry('500x500')
 
+def sample_plot(CHUNK):    #Function to create the base plot, make sure to make global the lines, axes, canvas and any part that you would want to update later
 
-def sample_plot(CHUNK, *perfis):    #Function to create the base plot, make sure to make global the lines, axes, canvas and any part that you would want to update later
-
-    global line, line_fft, fig, ax, ax_fft, ax_profile, canvas, perfil_list
-    fig, (ax, ax_fft, ax_profile) = plt.subplots(3)
+    global line, line_fft, fig, ax, ax_fft, ax_profile, canvas, perfil_list, perfil_list_analise
+    fig, (ax, ax_fft, ax_profile, ax_analise) = plt.subplots(4,figsize = (7,7))
     fig.subplots_adjust(hspace=1) 
     canvas = FigureCanvasTkAgg(fig, master=window)
     canvas.draw()#show()
@@ -76,12 +76,19 @@ def sample_plot(CHUNK, *perfis):    #Function to create the base plot, make sure
     ax_profile.set_ylabel('')
     ax_profile.get_xaxis().set_visible(False)
     ax_profile.get_yaxis().set_visible(False)
+    ax_analise.set_title('analise')
+    ax_analise.set_xlabel('')
+    ax_analise.set_ylabel('')
+    ax_analise.get_xaxis().set_visible(False)
+    ax_analise.get_yaxis().set_visible(False)    
     x_perfil=.2
     y_perfil=1
     perfil_list =[]
-    for perfil in perfis:
+    perfil_list_analise =[]
+    for x in range(8):
         y_perfil -= .2
-        perfil_list.append(ax_profile.text(x_perfil, y_perfil, perfil, horizontalalignment='center', verticalalignment='center', transform=ax_profile.transAxes))
+        perfil_list.append(ax_profile.text(x_perfil, y_perfil, '', horizontalalignment='center', verticalalignment='center', transform=ax_profile.transAxes))
+        perfil_list_analise.append(ax_analise.text(x_perfil, y_perfil, '', horizontalalignment='center', verticalalignment='center', transform=ax_analise.transAxes))
         if (y_perfil <= .3):
             y_perfil = 1
             x_perfil += .5
@@ -97,6 +104,10 @@ def update_plot():
     
     global my_array
     global my_array_fft
+    global my_array_MAX_amplitude
+    global my_array_MIN_amplitude
+    global my_array_MAX_bit_delta
+    
     try:       
         line.set_ydata(my_array)
         line_fft.set_ydata(my_array_fft)
@@ -108,6 +119,11 @@ def update_plot():
         perfil_list[4].set_text('buffer1 entrada: ' + str(profile_tamanho_buffer_q_sample))
         perfil_list[5].set_text('buffer2 processado: ' + str(profile_tamanho_buffer_q_sample_processado))
 
+        perfil_list_analise[0].set_text('MAX_amplitude: ' + str(my_array_MAX_amplitude))
+        perfil_list_analise[1].set_text('MIN_amplitude: ' + str(my_array_MIN_amplitude))
+        perfil_list_analise[2].set_text('MAX_bit_delta: ' + str(my_array_MAX_bit_delta))
+        my_array_MAX_bit_delta
+
         ax.draw_artist(line)
         ax_fft.draw_artist(line_fft)
         canvas.draw()
@@ -117,8 +133,9 @@ def update_plot():
         # window.after(500,updateplot,q)
 
 def enfileiramento_q_sample():
-    media = Media() # Create the media object para teste: media = Media(comando='teste')
-    media_tocar = Media(comando='tocar')
+
+    global media
+
     global profile_amostragem
     global profile_canais
     global profile_tamanho_buffer_gst
@@ -173,6 +190,15 @@ def enfileiramento_processamento():
     
     global my_array
     global my_array_fft
+    global my_array_MAX_amplitude
+    global my_array_MIN_amplitude
+    global my_array_MAX_bit_delta
+
+    my_array = 0
+    my_array_fft = 0
+    my_array_MAX_amplitude = 0
+    my_array_MIN_amplitude = 9999999999
+    my_array_MAX_bit_delta = 0
 
     while True:
         if q_sample_processado.empty():
@@ -181,12 +207,29 @@ def enfileiramento_processamento():
             my_array = q_sample_processado.get_nowait()
             my_array_fft = np.abs(fft(my_array)) * 2 / (256*CHUNK)
 
+            temp_MAX = np.amax(my_array)
+            if my_array_MAX_amplitude <= temp_MAX:
+                my_array_MAX_amplitude = temp_MAX
+            temp_MIN = np.amin(my_array)
+            if my_array_MIN_amplitude >= temp_MIN:
+                my_array_MIN_amplitude = temp_MIN
+            temp_diff_array = np.diff(np.array(my_array,dtype=int))
+            temp_diff_array_ABS = np.absolute(temp_diff_array)
+            temp_diff_array_ABS_MAX = np.amax(temp_diff_array_ABS)
+            if my_array_MAX_bit_delta <= temp_diff_array_ABS_MAX:
+                my_array_MAX_bit_delta = temp_diff_array_ABS_MAX
+
             #q_sample_plot.put(my_array)
 
         except Exception as e:
             print (str(e))
 
 if __name__ == '__main__':
+
+    global media
+    media = Media() # Create the media object
+    #media = Media(comando='teste') 
+    #media_tocar = Media(comando='tocar')
 
     global CHUNK
     global profile_amostragem
@@ -204,19 +247,13 @@ if __name__ == '__main__':
     profile_tamanho_buffer_q_sample = 0 
     profile_tamanho_buffer_q_sample_processado= 0
 
-    global my_array
-    global my_array_fft
+    # global my_array
+    # global my_array_fft
 
-    my_array = 0
-    my_array_fft = 0
+    # my_array = 0
+    # my_array_fft = 0
 
-    sample_plot(CHUNK, 
-                profile_amostragem,
-                profile_canais,
-                profile_tamanho_buffer_gst, 
-                profile_amostras_visualizadas, 
-                profile_tamanho_buffer_q_sample, 
-                profile_tamanho_buffer_q_sample_processado) #Create the base plot
+    sample_plot(CHUNK) #Create the base plot
 
     global q_sample
     global q_sample_processado

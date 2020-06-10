@@ -40,10 +40,30 @@ class Media():
         command = ''
         
         if self.comando == '':
-            command = 'udpsrc port=5000 ! application/x-rtp, media=audio, clock-rate=44100, width=16, height=16, encoding-name=L16, encoding-params=1, channels=1, channel-positions=1, payload=96 ! rtpL16depay ! audioconvert ! audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! appsink emit-signals=True'
+            command = 'udpsrc port=5000 ! application/x-rtp, media=audio, clock-rate=44100, width=16, height=16, encoding-name=L16, encoding-params=1, channels=1, channel-positions=1, payload=96 ! \
+                                        rtpL16depay ! \
+                                        tee name=t ! \
+                                            queue ! \
+                                                audioconvert ! \
+                                                alsasink sync=false t. ! \
+                                            queue ! \
+                                                audioconvert ! \
+                                                audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! \
+                                                appsink emit-signals=True' # t. ! \
+                                            # queue ! \
+                                            #     audioconvert ! goom ! videoconvert ! autovideosink'           
         elif self.comando == 'teste':
-            command = 'audiotestsrc ! audioconvert ! audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! appsink emit-signals=True' #autoaudiosink
-            #command = 'audiotestsrc ! audioconvert ! audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! tee name=t ! queue ! appsink emit-signals=True t. ! queue ! autoaudiosink'
+            command = 'audiotestsrc ! \
+                            tee name=t ! \
+                                queue ! \
+                                    audioconvert ! \
+                                    alsasink sync=false t. ! \
+                                queue ! \
+                                    audioconvert ! \
+                                    audio/x-raw,format=S8,channels=1, rate=44100 ! \
+                                    appsink emit-signals=True'
+            
+            # command = 'audiotestsrc ! audioconvert ! audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! appsink emit-signals=True' #autoaudiosink
             #command = 'filesrc location=/home/bruno/Vprism/beta_VMS/teste.wav ! decodebin ! audioconvert ! audioresample ! audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! appsink emit-signals=True'
         elif self.comando == 'tocar':
             #command = 'audiotestsrc ! audioconvert ! autoaudiosink'
