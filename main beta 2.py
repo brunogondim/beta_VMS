@@ -348,6 +348,7 @@ def envio_da_sinalização():
     global disparo_detectado
     global hora_do_disparo
 
+    
     if disparo_detectado:
         sinalização = 'disparo ocorrido às' + hora_do_disparo
     else:
