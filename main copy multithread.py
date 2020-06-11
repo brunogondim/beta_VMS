@@ -110,7 +110,14 @@ def update_plot():
     global my_array_MAX_amplitude
     global my_array_MEAN_amplitude
     global my_array_MIN_amplitude
+    global my_array_MAX_REL
     global my_array_MAX_bit_delta
+    
+    global hora_do_disparo
+    global amplitude_do_disparo 
+    global delta_bit
+
+
     
     try:       
         line.set_ydata(my_array_show)
@@ -127,12 +134,22 @@ def update_plot():
         perfil_list_analise[0].set_text('MAX_amplitude: ' + str(my_array_MAX_amplitude))
         perfil_list_analise[1].set_text('MEAN_amplitude: ' + str(my_array_MEAN_amplitude))
         perfil_list_analise[2].set_text('MIN_amplitude: ' + str(my_array_MIN_amplitude))
-        perfil_list_analise[3].set_text('MAX_bit_delta: ' + str(my_array_MAX_bit_delta))
-        
+        perfil_list_analise[3].set_text('MAX_amp_REL: ' + str(my_array_MAX_REL))
+        perfil_list_analise[4].set_text('MAX_bit_delta: ' + str(my_array_MAX_bit_delta))
+
+        if disparo_detectado == True:
+            perfil_list_analise[5].set_text('hora_do_disparo: ' + str(hora_do_disparo))
+            perfil_list_analise[6].set_text('amplitude_do_disparo: ' + str(amplitude_do_disparo))
+            perfil_list_analise[7].set_text('delta_bit: ' + str(delta_bit))
+        else:
+            perfil_list_analise[5].set_text('hora_do_disparo: ' )
+            perfil_list_analise[6].set_text('amplitude_do_disparo: ')
+            perfil_list_analise[7].set_text('delta_bit: ' )
+
         ax.draw_artist(line)
         ax_fft.draw_artist(line_fft)
         canvas.draw()
-        #window.after(500,updateplot,q)
+        window.after(500,update_plot)
     except Exception as e:
         print (str(e))
         # window.after(500,updateplot,q)
@@ -215,22 +232,32 @@ def enfileiramento_processamento():
     global my_array_MEAN_amplitude_array
     global my_array_MEAN_amplitude_array_aux
     global my_array_MIN_amplitude
+    global my_array_MAX_REL
     global my_array_MAX_bit_delta
+
+    global disparo_detectado
+    global hora_do_disparo
+    global amplitude_do_disparo 
+    global delta_bit 
 
     my_array = 0
     my_array_show = 0
     my_array_fft = 0
     my_array_fft_show = 0
     my_array_MAX_amplitude = 0
-    my_array_MEAN_rolling = 40 # média móvel
+    my_array_MEAN_rolling = 1 # média móvel
     my_array_MEAN_rolling_aux = False
     my_array_MEAN_amplitude = 0
     my_array_MEAN_amplitude_array = np.empty(my_array_MEAN_rolling,dtype=float)
     my_array_MEAN_amplitude_array_aux = 0
     my_array_MIN_amplitude = 9999999999
+    my_array_MAX_REL = 0
     my_array_MAX_bit_delta = 0
 
     disparo_detectado = False
+    hora_do_disparo = datetime.time()
+    amplitude_do_disparo = 0
+    delta_bit = 0
 
     while True:
         if q_sample_pre_processado.empty():
@@ -243,9 +270,10 @@ def enfileiramento_processamento():
             if my_array_MAX_amplitude <= temp_MAX:
                 my_array_MAX_amplitude = temp_MAX
 
-            my_array_MEAN_amplitude_array[my_array_MEAN_amplitude_array_aux] = np.mean(my_array)
+            temp_MEAN = np.mean(my_array)
+            my_array_MEAN_amplitude_array[my_array_MEAN_amplitude_array_aux] = temp_MEAN
             my_array_MEAN_amplitude_array_aux+=1
-            if my_array_MEAN_amplitude_array_aux >= my_array_MEAN_rolling:
+            if my_array_MEAN_amplitude_array_aux >= my_array_MEAN_rolling-1:
                 my_array_MEAN_amplitude_array_aux = 0
                 my_array_MEAN_rolling_aux = True
             if my_array_MEAN_rolling_aux == True:
@@ -255,38 +283,43 @@ def enfileiramento_processamento():
             if my_array_MIN_amplitude >= temp_MIN:
                 my_array_MIN_amplitude = temp_MIN
 
+            temp_MAX_MEAN = abs(temp_MEAN - temp_MAX)
+            temp_MIN_MEAN = abs(temp_MEAN - temp_MIN)
+            if temp_MAX_MEAN >= temp_MIN_MEAN:
+                temp_MAX_REL = temp_MAX_MEAN
+            else:
+                temp_MAX_REL = temp_MIN_MEAN
+            my_array_MAX_REL = temp_MAX_REL
+
+
             temp_diff_array = np.diff(np.array(my_array,dtype=int))
             temp_diff_array_ABS = np.absolute(temp_diff_array)
             temp_diff_array_ABS_MAX = np.amax(temp_diff_array_ABS)
             if my_array_MAX_bit_delta <= temp_diff_array_ABS_MAX:
                 my_array_MAX_bit_delta = temp_diff_array_ABS_MAX
 
-            # detecção do disparo
 
-            # if disparo_detectado == True and my_array_MAX_amplitude >= 200:
-            #     disparo_detectado = True
-            #     hora_do_disparo = datetime.time()
-            #     contador = time.time()
-            #     my_array_show = my_array
-            #     my_array_fft_show = my_array_fft
-
-            # if disparo_detectado:
-            #     if time.time()-contador>=5:
-            #         disparo_detectado = False
-            # else:
-            #     my_array_show = my_array
-            #     my_array_fft_show = my_array_fft
-                    
+            ### #detecção do disparo
 
 
-            
 
-            
+            if disparo_detectado == False and temp_MAX_REL >= 30 and temp_diff_array_ABS_MAX >= 20:
+                disparo_detectado = True
 
+                hora_do_disparo = datetime.time()
+                amplitude_do_disparo = temp_MAX_REL
+                delta_bit = temp_diff_array_ABS_MAX
 
-                
+                contador = time.time()
+                my_array_show = my_array
+                my_array_fft_show = my_array_fft
 
-            #q_sample_plot.put(my_array)
+            if disparo_detectado:
+                if time.time()-contador>=2:
+                    disparo_detectado = False
+            else:
+                my_array_show = my_array
+                my_array_fft_show = my_array_fft
 
         except Exception as e:
             print (str(e))
@@ -307,7 +340,7 @@ if __name__ == '__main__':
     global profile_tamanho_buffer_q_sample 
     global profile_tamanho_buffer_q_sample_pre_processado
     
-    CHUNK = 1024 * 2
+    CHUNK = 1024 * 20
     profile_amostragem = 0
     profile_canais = 0
     profile_tamanho_CHUNK_gst = 0
@@ -340,8 +373,10 @@ if __name__ == '__main__':
     thread_enfileiramento_processamento = threading.Thread(target=enfileiramento_processamento)
     thread_enfileiramento_processamento.start()
     
-    while True:
-        update_plot()
+    # while True:
+    #     update_plot()
+    update_plot()
+    window.mainloop()
 
 
 
