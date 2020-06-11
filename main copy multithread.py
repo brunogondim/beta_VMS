@@ -115,7 +115,7 @@ def update_plot():
     
     global hora_do_disparo
     global amplitude_do_disparo 
-    global delta_bit
+    global delta_bit_do_disparo
 
 
     
@@ -137,14 +137,14 @@ def update_plot():
         perfil_list_analise[3].set_text('MAX_amp_REL: ' + str(my_array_MAX_REL))
         perfil_list_analise[4].set_text('MAX_bit_delta: ' + str(my_array_MAX_bit_delta))
 
-        if disparo_detectado == True:
-            perfil_list_analise[5].set_text('hora_do_disparo: ' + str(hora_do_disparo))
-            perfil_list_analise[6].set_text('amplitude_do_disparo: ' + str(amplitude_do_disparo))
-            perfil_list_analise[7].set_text('delta_bit: ' + str(delta_bit))
-        else:
-            perfil_list_analise[5].set_text('hora_do_disparo: ' )
-            perfil_list_analise[6].set_text('amplitude_do_disparo: ')
-            perfil_list_analise[7].set_text('delta_bit: ' )
+        # if disparo_detectado == True:
+        #     perfil_list_analise[5].set_text('hora_do_disparo: ' + str(hora_do_disparo))
+        #     perfil_list_analise[6].set_text('amplitude_do_disparo: ' + str(amplitude_do_disparo[0]) + ' (' + str(amplitude_do_disparo[1]) + ',+' + str(amplitude_do_disparo[2] - 1) + ')')
+        #     perfil_list_analise[7].set_text('delta_bit_do_disparo: ' + str(delta_bit_do_disparo[0]) + ' (' + str(delta_bit_do_disparo[1]) + ',+' + str(delta_bit_do_disparo[2] - 1) + ')')
+        # else:
+        #     perfil_list_analise[5].set_text('hora_do_disparo: ' )
+        #     perfil_list_analise[6].set_text('amplitude_do_disparo: ')
+        #     perfil_list_analise[7].set_text('delta_bit_do_disparo: ' )
 
         ax.draw_artist(line)
         ax_fft.draw_artist(line_fft)
@@ -238,7 +238,7 @@ def enfileiramento_processamento():
     global disparo_detectado
     global hora_do_disparo
     global amplitude_do_disparo 
-    global delta_bit 
+    global delta_bit_do_disparo 
 
     my_array = 0
     my_array_show = 0
@@ -257,20 +257,23 @@ def enfileiramento_processamento():
     disparo_detectado = False
     hora_do_disparo = datetime.time()
     amplitude_do_disparo = 0
-    delta_bit = 0
+    delta_bit_do_disparo = 0
 
     while True:
         if q_sample_pre_processado.empty():
             continue
         try:       #Try to check if there is data in the queue
             my_array = q_sample_pre_processado.get_nowait()
-            # my_array_fft = np.abs(fft(my_array)) * 2 / (256*CHUNK) # transformada consome muito processamento!
+            #my_array_fft = np.abs(fft(my_array)) * 2 / (256*CHUNK) # transformada consome muito processamento!
 
-            temp_MAX = np.amax(my_array)
+            #temp_MAX = np.amax(my_array)
+            temp_MAX_index = np.where(my_array == np.amax(my_array))
+            temp_MAX_index_plus = len(temp_MAX_index[0])
+            temp_MAX = my_array[temp_MAX_index[0][0]]
             if my_array_MAX_amplitude <= temp_MAX:
                 my_array_MAX_amplitude = temp_MAX
 
-            temp_MEAN = np.mean(my_array)
+            temp_MEAN = np.mean(my_array)     
             my_array_MEAN_amplitude_array[my_array_MEAN_amplitude_array_aux] = temp_MEAN
             my_array_MEAN_amplitude_array_aux+=1
             if my_array_MEAN_amplitude_array_aux >= my_array_MEAN_rolling-1:
@@ -279,47 +282,59 @@ def enfileiramento_processamento():
             if my_array_MEAN_rolling_aux == True:
                 my_array_MEAN_amplitude = np.around(np.mean(my_array_MEAN_amplitude_array),decimals=1)
 
-            temp_MIN = np.amin(my_array)
+            # temp_MIN = np.amin(my_array)
+            temp_MIN_index = np.where(my_array == np.amin(my_array))
+            temp_MIN_index_plus = len(temp_MIN_index[0])
+            temp_MIN = my_array[temp_MIN_index[0][0]]            
             if my_array_MIN_amplitude >= temp_MIN:
                 my_array_MIN_amplitude = temp_MIN
 
             temp_MAX_MEAN = abs(temp_MEAN - temp_MAX)
             temp_MIN_MEAN = abs(temp_MEAN - temp_MIN)
             if temp_MAX_MEAN >= temp_MIN_MEAN:
-                temp_MAX_REL = temp_MAX_MEAN
+                temp_MAX_REL = np.around(temp_MAX_MEAN,decimals=1)
+                temp_MAX_REL_index = temp_MAX_index
+                temp_MAX_REL_index_plus = temp_MAX_index_plus
             else:
-                temp_MAX_REL = temp_MIN_MEAN
-            my_array_MAX_REL = temp_MAX_REL
+                temp_MAX_REL = np.around(temp_MIN_MEAN,decimals=1)
+                temp_MAX_REL_index = temp_MIN_index
+                temp_MAX_REL_index_plus = temp_MIN_index_plus
+            if my_array_MAX_REL < temp_MAX_REL:
+                my_array_MAX_REL = temp_MAX_REL
 
 
             temp_diff_array = np.diff(np.array(my_array,dtype=int))
             temp_diff_array_ABS = np.absolute(temp_diff_array)
-            temp_diff_array_ABS_MAX = np.amax(temp_diff_array_ABS)
+            #temp_diff_array_ABS_MAX = np.amax(temp_diff_array_ABS)
+            temp_diff_array_ABS_MAX_index = np.where(temp_diff_array_ABS == np.amax(temp_diff_array_ABS))
+            temp_diff_array_ABS_MAX_index_plus = len(temp_diff_array_ABS_MAX_index[0])
+            temp_diff_array_ABS_MAX = my_array[temp_diff_array_ABS_MAX_index[0][0]]            
             if my_array_MAX_bit_delta <= temp_diff_array_ABS_MAX:
                 my_array_MAX_bit_delta = temp_diff_array_ABS_MAX
 
 
-            ### #detecção do disparo
+            ####detecção do disparo
 
+            # if disparo_detectado == False and temp_MAX_REL >= 83 and temp_diff_array_ABS_MAX >= 20:
+            #     disparo_detectado = True
 
+            #     hora_do_disparo = datetime.datetime.now().strftime("%H:%M:%S")
+            #     amplitude_do_disparo = [temp_MAX_REL,temp_MAX_REL_index[0][0],temp_MAX_REL_index_plus]
+            #     delta_bit_do_disparo = [temp_diff_array_ABS_MAX,temp_diff_array_ABS_MAX_index[0][0],temp_diff_array_ABS_MAX_index_plus]
 
-            if disparo_detectado == False and temp_MAX_REL >= 30 and temp_diff_array_ABS_MAX >= 20:
-                disparo_detectado = True
+            #     my_array_fft_show = np.abs(fft(my_array)) * 2 / (256*CHUNK) # transformada consome muito processamento!
 
-                hora_do_disparo = datetime.time()
-                amplitude_do_disparo = temp_MAX_REL
-                delta_bit = temp_diff_array_ABS_MAX
+            #     contador = time.time()
+            #     my_array_show = my_array
+            #     #my_array_fft_show = my_array_fft
 
-                contador = time.time()
-                my_array_show = my_array
-                my_array_fft_show = my_array_fft
-
-            if disparo_detectado:
-                if time.time()-contador>=2:
-                    disparo_detectado = False
-            else:
-                my_array_show = my_array
-                my_array_fft_show = my_array_fft
+            # if disparo_detectado:
+            #     if time.time()-contador>=10:
+            #         disparo_detectado = False
+            #         #my_array_fft_show = 0
+            # else:
+            #     my_array_show = my_array
+            #     my_array_fft_show = my_array_fft
 
         except Exception as e:
             print (str(e))
@@ -327,8 +342,8 @@ def enfileiramento_processamento():
 if __name__ == '__main__':
 
     global media
-    media = Media() # Create the media object
-    #media = Media(comando='teste') 
+    #media = Media() # Create the media object
+    media = Media(comando='teste') 
     #media = Media(comando='tocar')
 
     global CHUNK
@@ -378,61 +393,6 @@ if __name__ == '__main__':
     update_plot()
     window.mainloop()
 
-
-
-
-
-
-
-
-
-
-    # sample_plot(CHUNK, profile_amostragem,profile_canais,profile_tamanho_CHUNK_gst, profile_tamanho_buffer_q_sample, profile_tamanho_buffer_q_sample_pre_processado) #Create the base plot
-    # # thread_plot = threading.Thread(target=plot, args=(
-    # #             q_sample_plot,
-    # #             CHUNK, 
-    # #             'amostragem(Hz): ' + str(profile_amostragem),
-    # #             'canais: ' + str(profile_canais),
-    # #             'buffer_saida_gst: ' + str(profile_tamanho_CHUNK_gst),
-    # #             'buffer_entrada_app: ' + str(profile_tamanho_buffer_q_sample),
-    # #             'profile_tamanho_buffer_q_sample_pre_processado: ' + str(profile_tamanho_buffer_q_sample_pre_processado)
-    # #             ))
-    # # thread_plot.start()
-
-
-    # media = Media() # Create the media object
-
-    # while True:
-    #     # Wait for the next frame
-    #     if not media.sample_available():
-    #         continue
-
-    #     #teste = media.gst_to_array(media._sampleteste)
-    #     profile_amostragem = media._sampleteste.get_caps().get_structure(0).get_value('rate')
-    #     profile_canais = media._sampleteste.get_caps().get_structure(0).get_value('channels')
-    #     profile_tamanho_CHUNK_gst = media._sampleteste.get_buffer().get_size()
-    #     profile_tamanho_buffer_q_sample = q_sample.qsize() 
-    #     profile_tamanho_buffer_q_sample_pre_processado = q_sample_pre_processado.qsize()
-
-
-    #     sample = media.sample()
-    #     q_sample.put(sample)
-
-
-    #     sample_to_bits(q_sample,q_sample_pre_processado)
-    #     if profile_tamanho_buffer_q_sample_pre_processado >= CHUNK:
-    #         bits_to_process(
-    #             q_sample_pre_processado,
-    #             q_sample_plot,
-    #             CHUNK, 
-    #             'amostragem(Hz): ' + str(profile_amostragem),
-    #             'canais: ' + str(profile_canais),
-    #             'buffer_saida_gst: ' + str(profile_tamanho_CHUNK_gst),
-    #             'buffer_entrada_app: ' + str(profile_tamanho_buffer_q_sample),
-    #             'profile_tamanho_buffer_q_sample_pre_processado: ' + str(profile_tamanho_buffer_q_sample_pre_processado)
-    #             )
-        
-        
 
 
 
