@@ -337,6 +337,10 @@ def enfileiramento_processamento():
                 my_array_show = my_array
                 #my_array_fft_show = my_array_fft
 
+                print(hora_do_disparo)
+                print(amplitude_do_disparo)
+                print(delta_bit_do_disparo)
+
             if disparo_detectado == False:
                 my_array_show = my_array
 
