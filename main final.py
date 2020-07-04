@@ -21,17 +21,21 @@
 # https://jakevdp.github.io/PythonDataScienceHandbook/04.00-introduction-to-matplotlib.html
 # https://stackoverflow.com/questions/34764535/why-cant-matplotlib-plot-in-a-different-thread
 
+# comando para testar a captura do audio
+# gst-launch-1.0 filesrc location=/home/bruno/Vprism/beta_VMS/teste.wav ! decodebin ! audioconvert ! audioresample !  audio/x-raw,channels=1,depth=16,width=16,rate=44100 ! rtpL16pay  ! udpsink host=localhost port=5000
+
+# outros comandos
 # gst-launch-1.0 audiotestsrc ! audioconvert ! autoaudiosink
-
 # filesrc location=/home/bruno/Vprism/beta_VMS/teste.wav
-
 # gst-inspect-1.0 audioconvert
 
-import matplotlib
-matplotlib.use('TkAgg')
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk#Agg
-import matplotlib.pyplot as plt
-import tkinter
+
+# import matplotlib
+# matplotlib.use('TkAgg')
+# from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk#Agg
+# import matplotlib.pyplot as plt
+# import tkinter
+
 import paho.mqtt.publish as publish
 from scipy.fftpack import fft
 
@@ -50,111 +54,111 @@ import sys
 from Class_Audio import Media
 
 
-window=tkinter.Tk()
-#window.geometry('500x500')
+# window=tkinter.Tk()
+# #window.geometry('500x500')
 
-def sample_plot(CHUNK):    #Function to create the base plot, make sure to make global the lines, axes, canvas and any part that you would want to update later
+# def sample_plot(CHUNK):    #Function to create the base plot, make sure to make global the lines, axes, canvas and any part that you would want to update later
 
-    global line, line_fft, fig, ax, ax_fft, ax_profile, canvas, perfil_list, perfil_list_analise
-    fig, (ax, ax_fft, ax_profile, ax_analise) = plt.subplots(4,figsize = (7,7))
-    fig.subplots_adjust(hspace=1) 
-    canvas = FigureCanvasTkAgg(fig, master=window)
-    canvas.draw()#show()
-    canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
-    canvas._tkcanvas.pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
-    line, = ax.plot(np.arange(CHUNK),np.random.rand(CHUNK))
-    line_fft, = ax_fft.plot(np.linspace(0,44100,CHUNK),np.random.rand(CHUNK))
-    ax.set_title('dominio do tempo')
-    ax.set_xlabel('amostras')
-    ax.set_ylabel('volume')
-    ax.set_ylim(0,255)
-    ax.set_xlim(0,CHUNK)
-    ax_fft.set_title('dominio da frequencia')
-    ax_fft.set_xlabel('frequencia')
-    ax_fft.set_ylabel('intensidade')
-    ax_fft.set_ylim(0,1)
-    ax_fft.set_xlim(0,10000)
-    ax_profile.set_title('perfil')
-    ax_profile.set_xlabel('')
-    ax_profile.set_ylabel('')
-    ax_profile.get_xaxis().set_visible(False)
-    ax_profile.get_yaxis().set_visible(False)
-    ax_analise.set_title('analise')
-    ax_analise.set_xlabel('')
-    ax_analise.set_ylabel('')
-    ax_analise.get_xaxis().set_visible(False)
-    ax_analise.get_yaxis().set_visible(False)    
-    x_perfil=.2
-    y_perfil=1
-    perfil_list =[]
-    perfil_list_analise =[]
-    for x in range(8):
-        y_perfil -= .2
-        perfil_list.append(ax_profile.text(x_perfil, y_perfil, '', horizontalalignment='center', verticalalignment='center', transform=ax_profile.transAxes))
-        perfil_list_analise.append(ax_analise.text(x_perfil, y_perfil, '', horizontalalignment='center', verticalalignment='center', transform=ax_analise.transAxes))
-        if (y_perfil <= .3):
-            y_perfil = 1
-            x_perfil += .5
+#     global line, line_fft, fig, ax, ax_fft, ax_profile, canvas, perfil_list, perfil_list_analise
+#     fig, (ax, ax_fft, ax_profile, ax_analise) = plt.subplots(4,figsize = (7,7))
+#     fig.subplots_adjust(hspace=1) 
+#     canvas = FigureCanvasTkAgg(fig, master=window)
+#     canvas.draw()#show()
+#     canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
+#     canvas._tkcanvas.pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
+#     line, = ax.plot(np.arange(CHUNK),np.random.rand(CHUNK))
+#     line_fft, = ax_fft.plot(np.linspace(0,44100,CHUNK),np.random.rand(CHUNK))
+#     ax.set_title('dominio do tempo')
+#     ax.set_xlabel('amostras')
+#     ax.set_ylabel('volume')
+#     ax.set_ylim(0,255)
+#     ax.set_xlim(0,CHUNK)
+#     ax_fft.set_title('dominio da frequencia')
+#     ax_fft.set_xlabel('frequencia')
+#     ax_fft.set_ylabel('intensidade')
+#     ax_fft.set_ylim(0,1)
+#     ax_fft.set_xlim(0,10000)
+#     ax_profile.set_title('perfil')
+#     ax_profile.set_xlabel('')
+#     ax_profile.set_ylabel('')
+#     ax_profile.get_xaxis().set_visible(False)
+#     ax_profile.get_yaxis().set_visible(False)
+#     ax_analise.set_title('analise')
+#     ax_analise.set_xlabel('')
+#     ax_analise.set_ylabel('')
+#     ax_analise.get_xaxis().set_visible(False)
+#     ax_analise.get_yaxis().set_visible(False)    
+#     x_perfil=.2
+#     y_perfil=1
+#     perfil_list =[]
+#     perfil_list_analise =[]
+#     for x in range(8):
+#         y_perfil -= .2
+#         perfil_list.append(ax_profile.text(x_perfil, y_perfil, '', horizontalalignment='center', verticalalignment='center', transform=ax_profile.transAxes))
+#         perfil_list_analise.append(ax_analise.text(x_perfil, y_perfil, '', horizontalalignment='center', verticalalignment='center', transform=ax_analise.transAxes))
+#         if (y_perfil <= .3):
+#             y_perfil = 1
+#             x_perfil += .5
 
-def update_plot():
+# def update_plot():
     
-    global profile_amostragem
-    global profile_canais
-    global profile_tamanho_CHUNK_gst
-    global profile_tamanho_CHUNK_analise
-    global profile_tamanho_buffer_gst
-    global profile_tamanho_buffer_q_sample
-    global profile_tamanho_buffer_q_sample_pre_processado
+#     global profile_amostragem
+#     global profile_canais
+#     global profile_tamanho_CHUNK_gst
+#     global profile_tamanho_CHUNK_analise
+#     global profile_tamanho_buffer_gst
+#     global profile_tamanho_buffer_q_sample
+#     global profile_tamanho_buffer_q_sample_pre_processado
     
-    global my_array_show
-    global my_array_fft_show
-    global my_array_MAX_amplitude
-    global my_array_MEAN_amplitude
-    global my_array_MIN_amplitude
-    global my_array_MAX_REL
-    global my_array_MAX_bit_delta
+#     global my_array_show
+#     global my_array_fft_show
+#     global my_array_MAX_amplitude
+#     global my_array_MEAN_amplitude
+#     global my_array_MIN_amplitude
+#     global my_array_MAX_REL
+#     global my_array_MAX_bit_delta
     
-    global hora_do_disparo
-    global amplitude_do_disparo 
-    global delta_bit_do_disparo
+#     global hora_do_disparo
+#     global amplitude_do_disparo 
+#     global delta_bit_do_disparo
    
-    try:       
+#     try:       
         
-        my_array_show_draw = my_array_show
-        my_array_fft_show_draw = my_array_fft_show
-        line.set_ydata(my_array_show_draw)
-        line_fft.set_ydata(my_array_fft_show_draw)
+#         my_array_show_draw = my_array_show
+#         my_array_fft_show_draw = my_array_fft_show
+#         line.set_ydata(my_array_show_draw)
+#         line_fft.set_ydata(my_array_fft_show_draw)
 
-        perfil_list[0].set_text('amostragem(Hz): ' + str(profile_amostragem))
-        perfil_list[1].set_text('canais: ' + str(profile_canais))
-        perfil_list[2].set_text('CHUNK saida gst: ' + str(profile_tamanho_CHUNK_gst))
-        perfil_list[3].set_text('CHUNK entrada app: ' + str(profile_tamanho_CHUNK_analise))
-        perfil_list[4].set_text('buffer0 gst: ' + str(profile_tamanho_buffer_gst))
-        perfil_list[5].set_text('buffer1 entrada: ' + str(profile_tamanho_buffer_q_sample))
-        perfil_list[6].set_text('buffer2 pré processado: ' + str(profile_tamanho_buffer_q_sample_pre_processado))
+#         perfil_list[0].set_text('amostragem(Hz): ' + str(profile_amostragem))
+#         perfil_list[1].set_text('canais: ' + str(profile_canais))
+#         perfil_list[2].set_text('CHUNK saida gst: ' + str(profile_tamanho_CHUNK_gst))
+#         perfil_list[3].set_text('CHUNK entrada app: ' + str(profile_tamanho_CHUNK_analise))
+#         perfil_list[4].set_text('buffer0 gst: ' + str(profile_tamanho_buffer_gst))
+#         perfil_list[5].set_text('buffer1 entrada: ' + str(profile_tamanho_buffer_q_sample))
+#         perfil_list[6].set_text('buffer2 pré processado: ' + str(profile_tamanho_buffer_q_sample_pre_processado))
 
-        perfil_list_analise[0].set_text('MAX_amplitude: ' + str(my_array_MAX_amplitude))
-        perfil_list_analise[1].set_text('MEAN_amplitude: ' + str(my_array_MEAN_amplitude))
-        perfil_list_analise[2].set_text('MIN_amplitude: ' + str(my_array_MIN_amplitude))
-        perfil_list_analise[3].set_text('MAX_amp_REL: ' + str(my_array_MAX_REL))
-        perfil_list_analise[4].set_text('MAX_bit_delta: ' + str(my_array_MAX_bit_delta))
+#         perfil_list_analise[0].set_text('MAX_amplitude: ' + str(my_array_MAX_amplitude))
+#         perfil_list_analise[1].set_text('MEAN_amplitude: ' + str(my_array_MEAN_amplitude))
+#         perfil_list_analise[2].set_text('MIN_amplitude: ' + str(my_array_MIN_amplitude))
+#         perfil_list_analise[3].set_text('MAX_amp_REL: ' + str(my_array_MAX_REL))
+#         perfil_list_analise[4].set_text('MAX_bit_delta: ' + str(my_array_MAX_bit_delta))
 
-        if disparo_detectado == True:
-            perfil_list_analise[5].set_text('hora_do_disparo: ' + str(hora_do_disparo))
-            perfil_list_analise[6].set_text('amplitude_do_disparo: ' + str(amplitude_do_disparo[0]) + ' (' + str(amplitude_do_disparo[1]) + ',+' + str(amplitude_do_disparo[2] - 1) + ')')
-            perfil_list_analise[7].set_text('delta_bit_do_disparo: ' + str(delta_bit_do_disparo[0]) + ' (' + str(delta_bit_do_disparo[1]) + ',+' + str(delta_bit_do_disparo[2] - 1) + ')')
-        else:
-            perfil_list_analise[5].set_text('hora_do_disparo: ' )
-            perfil_list_analise[6].set_text('amplitude_do_disparo: ')
-            perfil_list_analise[7].set_text('delta_bit_do_disparo: ' )
+#         if disparo_detectado == True:
+#             perfil_list_analise[5].set_text('hora_do_disparo: ' + str(hora_do_disparo))
+#             perfil_list_analise[6].set_text('amplitude_do_disparo: ' + str(amplitude_do_disparo[0]) + ' (' + str(amplitude_do_disparo[1]) + ',+' + str(amplitude_do_disparo[2] - 1) + ')')
+#             perfil_list_analise[7].set_text('delta_bit_do_disparo: ' + str(delta_bit_do_disparo[0]) + ' (' + str(delta_bit_do_disparo[1]) + ',+' + str(delta_bit_do_disparo[2] - 1) + ')')
+#         else:
+#             perfil_list_analise[5].set_text('hora_do_disparo: ' )
+#             perfil_list_analise[6].set_text('amplitude_do_disparo: ')
+#             perfil_list_analise[7].set_text('delta_bit_do_disparo: ' )
 
-        ax.draw_artist(line)
-        ax_fft.draw_artist(line_fft)
-        canvas.draw()
-        window.after(0,update_plot)
-    except Exception as e:
-        print (str(e))
-        # window.after(500,updateplot,q)
+#         ax.draw_artist(line)
+#         ax_fft.draw_artist(line_fft)
+#         canvas.draw()
+#         window.after(0,update_plot)
+#     except Exception as e:
+#         print (str(e))
+#         # window.after(500,updateplot,q)
 
 def profile():
 
@@ -337,27 +341,35 @@ def enfileiramento_processamento():
                 my_array_show = my_array
                 #my_array_fft_show = my_array_fft
 
-                print(hora_do_disparo)
-                print(amplitude_do_disparo)
-                print(delta_bit_do_disparo)
-
             if disparo_detectado == False:
                 my_array_show = my_array
 
         except Exception as e:
             print (str(e))
 
-def envio_da_sinalização():
+def envio_da_sinalizacao():
 
     global disparo_detectado
     global hora_do_disparo
 
-    if disparo_detectado:
-        sinalização = 'disparo ocorrido às' + hora_do_disparo
-    else:
-        sinalização = "detectando..."
+    contador_alive = time.time()
 
-    #publish.single(mqtt_topic, sinalização, hostname=mqtt_hostname, port=int(mqtt_port))
+    mqtt_topic = sys.argv[1]
+    mqtt_hostname = sys.argv[2]
+    mqtt_port = sys.argv[3]
+
+    while True:
+        sinalizacao = ''
+        if time.time()-contador_alive>=3:
+            if disparo_detectado:
+                sinalizacao = 'disparo ocorrido às' + hora_do_disparo
+            else:
+                sinalizacao = 'detectando...'
+            contador_alive = time.time()
+
+        if sinalizacao != '':
+            print(sinalizacao)
+            publish.single(mqtt_topic, sinalizacao, hostname=mqtt_hostname, port=int(mqtt_port))
     
 
 
@@ -371,9 +383,6 @@ if __name__ == '__main__':
     global mqtt_topic
     global mqtt_hostname
     global mqtt_port
-    # mqtt_topic = sys.argv[1]
-    # mqtt_hostname = sys.argv[2]
-    # mqtt_port = sys.argv[3]
 
     global CHUNK
     global profile_amostragem
@@ -392,8 +401,6 @@ if __name__ == '__main__':
     profile_tamanho_buffer_gst = 0
     profile_tamanho_buffer_q_sample = 0 
     profile_tamanho_buffer_q_sample_pre_processado= 0
-
-    sample_plot(CHUNK) #Create the base plot
 
     global q_sample
     global q_sample_pre_processado
@@ -416,11 +423,15 @@ if __name__ == '__main__':
 
     thread_enfileiramento_processamento = threading.Thread(target=enfileiramento_processamento)
     thread_enfileiramento_processamento.start()
+
+    thread_envio_da_sinalizacao = threading.Thread(target=envio_da_sinalizacao)
+    thread_envio_da_sinalizacao.start()
     
-    # while True:
-    #     update_plot()
-    update_plot()
-    window.mainloop()
+    while True:
+        continue
+    # sample_plot(CHUNK) #Create the base plot
+    # update_plot()
+    # window.mainloop()
 
 
 
