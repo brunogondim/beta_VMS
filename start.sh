@@ -8,4 +8,4 @@ spo_array=($spo)
 IFS=$OIFS
 
 # inside container
-python /root/shoot_detection/main final.py ${spo_array[1]} ${spo_array[2]} ${spo_array[3]}
+python /root/shoot_detection/main_final.py ${spo_array[1]} ${spo_array[2]} ${spo_array[3]}

@@ -41,12 +41,13 @@ class Media():
         command = ''
         
         if self.comando == '':
+            # dentro do container alsasink é substituido por fakesink
             command = 'udpsrc port=5000 ! application/x-rtp, media=audio, clock-rate=44100, width=16, height=16, encoding-name=L16, encoding-params=1, channels=1, channel-positions=1, payload=96 ! \
                                         rtpL16depay ! \
                                         tee name=t ! \
                                             queue ! \
                                                 audioconvert ! \
-                                                alsasink sync=false t. ! \
+                                                fakesink sync=false t. ! \
                                             queue ! \
                                                 audioconvert ! \
                                                 audio/x-raw,format=S8,channels=1, rate=44100, max-buffers=1024 ! \
