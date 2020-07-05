@@ -24,6 +24,9 @@
 # comando para testar a captura do audio
 # gst-launch-1.0 filesrc location=/home/bruno/Vprism/beta_VMS/teste.wav ! decodebin ! audioconvert ! audioresample !  audio/x-raw,channels=1,depth=16,width=16,rate=44100 ! rtpL16pay  ! udpsink host=localhost port=5000
 
+# comando para testar a captura de audio dentro do container
+# gst-launch-1.0 filesrc location=/home/bruno/Vprism/beta_VMS/teste.wav ! decodebin ! audioconvert ! audioresample !  audio/x-raw,channels=1,depth=16,width=16,rate=44100 ! rtpL16pay  ! udpsink host=172.17.0.1 port=10002
+
 # outros comandos
 # gst-launch-1.0 audiotestsrc ! audioconvert ! autoaudiosink
 # filesrc location=/home/bruno/Vprism/beta_VMS/teste.wav
@@ -354,9 +357,9 @@ def envio_da_sinalizacao():
 
     contador_alive = time.time()
 
-    mqtt_topic = sys.argv[1]
-    mqtt_hostname = sys.argv[2]
-    mqtt_port = sys.argv[3]
+    mqtt_hostname = sys.argv[1]
+    mqtt_port = sys.argv[2]
+    mqtt_topic = sys.argv[3]
 
     while True:
         sinalizacao = ''
